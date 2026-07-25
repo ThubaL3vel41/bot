@@ -12,6 +12,18 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+function horaAR() {
+  return new Date().toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires"
+  });
+}
+
+function limpiarDiscord(texto) {
+  return String(texto || "")
+    .replace(/@/g, "(at)")
+    .slice(0, 1800);
+}
+
 /* ================= CONFIG ================= */
 
 const PORT = process.env.PORT || 3000;
@@ -298,23 +310,49 @@ app.get("/calladmin", async (req, res) => {
 /* ================= BOLETERIA GENERAL ================= */
 
 app.post("/boleteria", async (req, res) => {
-  const { action, player, id, auth } = req.body;
+  const { action, player, id, auth, players, maxPlayers } = req.body;
   const entrada = action === "join";
+
+  const embedPublico = {
+    color: entrada ? 0x57F287 : 0xFF5555,
+    title: entrada ? "📥 Jugador Entró" : "📤 Jugador Salió",
+    description: `**${limpiarDiscord(player || "Sin nombre")}** ${entrada ? "se ha unido a la sala." : "ha salido de la sala."}`,
+    fields: [
+      {
+        name: "🆔 ID",
+        value: String(id || "?"),
+        inline: true
+      },
+      {
+        name: "👥 Jugadores en la sala",
+        value: `${players || "?"}/${maxPlayers || "25"}`,
+        inline: true
+      }
+    ],
+    footer: {
+      text: `By Juanpi_torico - ${horaAR()}`
+    }
+  };
+
+  const embedPrivado = {
+    ...embedPublico,
+    fields: [
+      ...embedPublico.fields,
+      {
+        name: "🔐 Auth",
+        value: "```" + limpiarDiscord(auth || "Sin auth") + "```",
+        inline: false
+      }
+    ]
+  };
 
   try {
     await axios.post(BOLETERIA_WEBHOOK_URL, {
-      content:
-        `${entrada ? "🟢 Entrada" : "🔴 Salida"} de jugador\n\n` +
-        `👤 Nombre: ${player || "Sin nombre"}\n` +
-        `🆔 ID: ${id || "Sin id"}`
+      embeds: [embedPublico]
     });
 
     await axios.post(BOLETERIA_PRIV_WEBHOOK_URL, {
-      content:
-        `${entrada ? "🟢 Entrada" : "🔴 Salida"} de jugador\n\n` +
-        `👤 Nombre: ${player || "Sin nombre"}\n` +
-        `🆔 ID: ${id || "Sin id"}\n` +
-        `🔐 Auth:\n${auth || "Sin auth"}`
+      embeds: [embedPrivado]
     });
 
     res.json({ ok: true });
@@ -330,11 +368,30 @@ app.post("/staffEvent", async (req, res) => {
   const { action, player, auth, sessionMinutes } = req.body;
   const entrada = action === "join";
 
+  const embedStaff = {
+    color: entrada ? 0xB066FF : 0xFF5555,
+    title: entrada ? "🟣 Staff Entró" : "🔴 Staff Salió",
+    description: `**${limpiarDiscord(player || "Sin nombre")}** ${entrada ? "ha entrado al host." : "ha salido del host."}`,
+    fields: [
+      {
+        name: "🔐 Auth",
+        value: "```" + limpiarDiscord(auth || "Sin auth") + "```",
+        inline: false
+      },
+      {
+        name: "⏱️ Tiempo de sesión",
+        value: entrada ? "Sesión iniciada" : `${sessionMinutes || 0} minutos`,
+        inline: true
+      }
+    ],
+    footer: {
+      text: `By Juanpi_torico - ${horaAR()}`
+    }
+  };
+
   try {
     await axios.post(STAFF_WEBHOOK_URL, {
-      content: entrada
-        ? `🟣 El staff ${player || "Sin nombre"}\n\n${auth || "Sin auth"}\n\nha entrado`
-        : `🟣 El staff ${player || "Sin nombre"}\n\n${auth || "Sin auth"}\n\nha salido\n\n⏱️ Tiempo de sesion: ${sessionMinutes || 0} minutos`
+      embeds: [embedStaff]
     });
 
     res.json({ ok: true });
