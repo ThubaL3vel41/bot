@@ -26,6 +26,9 @@ const CONFIG = {
   DISCORD_REPLAYS_WEBHOOK: "https://discord.com/api/webhooks/1487173680776609943/Nn-RSR5UySsD-3LUPt3tnNXSTLHZVctB5DqQyWNU8Fsz2KW5PdtvXijB3Rn44d93l3cz",
   DISCORD_CALLADMIN_WEBHOOK: "https://discord.com/api/webhooks/1505733610743926915/5P7G9WXoSy9W7DQe0159TBSdvQVk3KBewOE23AOHMCsVTp6bWC2149r9jh_yG7cQpFKD",
   DISCORD_CALLADMIN_ROLE_ID: "1505758592366674022",
+  DISCORD_BOLETERIA_WEBHOOK: "https://discord.com/api/webhooks/1487173904123298015/JSsluyv8440xHDPsdItT3Gotn8771scTWrCOkOgr72fKYPyb9jV7DkJYhnsagraMgcsV",
+  DISCORD_BOLETERIA_PRIV_WEBHOOK: "https://discord.com/api/webhooks/1529525347157278800/1EIyl1Q7b48jo812mFPXvRGqgOvQNe1PJwxlMN0W-bpRrmuB54OvTY2WBORm6kFyw340",
+  DISCORD_STAFF_WEBHOOK: "https://discord.com/api/webhooks/1489611409322151966/fPjw3h1ZWBI8AeUB4oBv7G25qQZvonHgcGB1WUHWjLvYxfEvjbSx1k9ThJouAuvBpEAf",
   DISCORD_BOLETERIA_CHANNEL_ID: "1475337837569114297",
   DISCORD_BOLETERIA_PRIV_CHANNEL_ID: "1529525242110939307",
   DISCORD_STAFF_CHANNEL_ID: "1489611366795972798",
@@ -47,6 +50,9 @@ const staffChannelId = config("DISCORD_STAFF_CHANNEL_ID");
 const replaysWebhook = config("DISCORD_REPLAYS_WEBHOOK");
 const callAdminWebhook = config("DISCORD_CALLADMIN_WEBHOOK");
 const callAdminRoleId = config("DISCORD_CALLADMIN_ROLE_ID");
+const boleteriaWebhook = config("DISCORD_BOLETERIA_WEBHOOK");
+const boleteriaPrivWebhook = config("DISCORD_BOLETERIA_PRIV_WEBHOOK");
+const staffWebhook = config("DISCORD_STAFF_WEBHOOK");
 
 const discordQueue = [];
 
@@ -106,6 +112,22 @@ async function sendWebhook(webhookUrl, content, allowedMentions = { parse: [] })
     console.log("sendWebhook error:", err.message);
     return false;
   }
+}
+
+async function sendWebhookEmbed(webhookUrl, embed) {
+  if (!webhookUrl) return false;
+  try {
+    await axios.post(webhookUrl, { embeds: [embed], allowed_mentions: { parse: [] } });
+    return true;
+  } catch (err) {
+    console.log("sendWebhookEmbed error:", err.message);
+    return false;
+  }
+}
+
+async function sendEmbed(webhookUrl, channelId, embed) {
+  if (webhookUrl) return sendWebhookEmbed(webhookUrl, embed);
+  return sendChannelEmbed(channelId, embed);
 }
 
 async function sendWebhookFile(webhookUrl, buffer, filename, content) {
@@ -218,10 +240,10 @@ app.post("/boleteria", async (req, res) => {
     ]
   };
 
-  await sendChannelEmbed(boleteriaChannelId, publicEmbed);
-  await sendChannelEmbed(boleteriaPrivChannelId, privateEmbed);
+  const okPublic = await sendEmbed(boleteriaWebhook, boleteriaChannelId, publicEmbed);
+  const okPrivate = await sendEmbed(boleteriaPrivWebhook, boleteriaPrivChannelId, privateEmbed);
 
-  res.json({ ok: true });
+  res.json({ ok: okPublic && okPrivate, public: okPublic, private: okPrivate });
 });
 
 app.post("/staffEvent", async (req, res) => {
@@ -232,7 +254,7 @@ app.post("/staffEvent", async (req, res) => {
   const now = new Date();
   const time = now.toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
 
-  await sendChannelEmbed(staffChannelId, {
+  const ok = await sendEmbed(staffWebhook, staffChannelId, {
     color: isLeave ? 0xFF5555 : 0xB066FF,
     title: isLeave ? "Staff Salio" : "Staff Entro",
     description: "**" + player + "** " + (isLeave ? "ha salido del host." : "ha entrado al host."),
@@ -243,7 +265,7 @@ app.post("/staffEvent", async (req, res) => {
     footer: { text: "By Tsq - " + time }
   });
 
-  res.json({ ok: true });
+  res.json({ ok });
 });
 
 app.post("/hostMessage", async (req, res) => {
