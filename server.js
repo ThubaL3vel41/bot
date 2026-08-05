@@ -229,7 +229,7 @@ app.post("/boleteria", async (req, res) => {
       { name: "ID", value: String(id), inline: true },
       { name: "Jugadores en la sala", value: players + "/" + maxPlayers, inline: true }
     ],
-    footer: { text: "By Tsq - " + time }
+    footer: { text: "By Juanpi_torico - " + time }
   };
 
   const privateEmbed = {
@@ -262,7 +262,7 @@ app.post("/staffEvent", async (req, res) => {
       { name: "Auth", value: "```" + auth + "```", inline: false },
       { name: "Tiempo de sesion", value: isLeave ? session : "Sesion iniciada", inline: true }
     ],
-    footer: { text: "By Tsq - " + time }
+    footer: { text: "By Juanpi_torico - " + time }
   });
 
   res.json({ ok });
