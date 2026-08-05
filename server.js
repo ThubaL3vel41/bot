@@ -17,13 +17,18 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 const CONFIG = {
+  /*
+    Podes poner los datos aca para no usar Environment en Render.
+    Ojo: no subas este archivo publico si tiene tokens/webhooks reales.
+  */
   DISCORD_BOT_TOKEN: "",
-  DISCORD_MENSAJES_CHANNEL_ID: "",
-  DISCORD_REPLAYS_WEBHOOK: "",
-  DISCORD_CALLADMIN_WEBHOOK: "",
-  DISCORD_BOLETERIA_CHANNEL_ID: "",
-  DISCORD_BOLETERIA_PRIV_CHANNEL_ID: "",
-  DISCORD_STAFF_CHANNEL_ID: "",
+  DISCORD_MENSAJES_CHANNEL_ID: "1529524552663564420",
+  DISCORD_REPLAYS_WEBHOOK: "https://discord.com/api/webhooks/1487173680776609943/Nn-RSR5UySsD-3LUPt3tnNXSTLHZVctB5DqQyWNU8Fsz2KW5PdtvXijB3Rn44d93l3cz",
+  DISCORD_CALLADMIN_WEBHOOK: "https://discord.com/api/webhooks/1505733610743926915/5P7G9WXoSy9W7DQe0159TBSdvQVk3KBewOE23AOHMCsVTp6bWC2149r9jh_yG7cQpFKD",
+  DISCORD_CALLADMIN_ROLE_ID: "1505758592366674022",
+  DISCORD_BOLETERIA_CHANNEL_ID: "1475337837569114297",
+  DISCORD_BOLETERIA_PRIV_CHANNEL_ID: "1529525242110939307",
+  DISCORD_STAFF_CHANNEL_ID: "1489611366795972798",
   DISCORD_OFICIAL: "https://discord.gg/jUFQbj58UW"
 };
 
@@ -41,6 +46,7 @@ const boleteriaPrivChannelId = config("DISCORD_BOLETERIA_PRIV_CHANNEL_ID");
 const staffChannelId = config("DISCORD_STAFF_CHANNEL_ID");
 const replaysWebhook = config("DISCORD_REPLAYS_WEBHOOK");
 const callAdminWebhook = config("DISCORD_CALLADMIN_WEBHOOK");
+const callAdminRoleId = config("DISCORD_CALLADMIN_ROLE_ID");
 
 const discordQueue = [];
 
@@ -91,10 +97,10 @@ async function sendChannelEmbed(channelId, embed) {
   }
 }
 
-async function sendWebhook(webhookUrl, content) {
+async function sendWebhook(webhookUrl, content, allowedMentions = { parse: [] }) {
   if (!webhookUrl) return false;
   try {
-    await axios.post(webhookUrl, { content: clean(content) });
+    await axios.post(webhookUrl, { content, allowed_mentions: allowedMentions });
     return true;
   } catch (err) {
     console.log("sendWebhook error:", err.message);
@@ -174,8 +180,13 @@ app.post("/uploadReplay", upload.single("file"), async (req, res) => {
 app.get("/calladmin", async (req, res) => {
   const player = clean(req.query.player || "Jugador");
   const razon = clean(req.query.razon || "Sin razon");
-  await sendWebhook(callAdminWebhook, "**" + player + "** ha llamado a los administradores.\nRazon: " + razon);
-  res.json({ ok: true });
+  const mention = callAdminRoleId ? "<@&" + callAdminRoleId + "> " : "";
+  const ok = await sendWebhook(
+    callAdminWebhook,
+    mention + "**" + player + "** ha llamado a los administradores.\nRazon: " + razon,
+    callAdminRoleId ? { parse: [], roles: [callAdminRoleId] } : { parse: [] }
+  );
+  res.json({ ok, hasWebhook: !!callAdminWebhook, hasRole: !!callAdminRoleId });
 });
 
 app.post("/boleteria", async (req, res) => {
